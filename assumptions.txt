@@ -1,0 +1,1 @@
+if tie occurs take lowest x first, then take the lowest y

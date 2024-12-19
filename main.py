@@ -12,6 +12,7 @@ AIR = "A"
 # DEFINE READFY FLAGS
 READY_1 = 11  # Phase 1 is complete and ready for next
 READY_1_POST = 22
+READY_1_POST_POST = 223
 READY_2 = 33
 READY_3 = 44
 READY_4 = 55
@@ -20,10 +21,307 @@ WAVE_READY = 66
 # Define master commands
 START_PHASE_1 = 1
 START_PHASE_1_POST = 2
-START_PHASE_2 = 3
-START_PHASE_3 = 4
-START_PHASE_4 = 5
-SUB_GRID = 6
+START_PHASE_1_POST_POST = 3
+START_PHASE_2 = 4
+START_PHASE_3 = 5
+START_PHASE_4 = 6
+SUB_GRID = 7
+
+# Define receiver enumerations
+# For example in ODD_ODD group only the processors with odd x and odd y values will receive data
+# this method avoids dedalocks by splitting receivers into 4 groups in checkered pattern
+# notice for readability, in the below functions groups are interchangabily used as phase
+EVEN_EVEN = 100
+ODD_EVEN = 200
+EVEN_ODD = 300
+ODD_ODD = 400
+
+
+# This function returns the processor receive type from its id
+# For example the processor 2 is of type EVEN_ODD
+# this is used in determining which processor will receive in given group
+def get_type_from_id(id, no_workers):
+    cur_x = (id - 1) // int(sqrt(no_workers))
+    cur_y = (id - 1) % int(sqrt(no_workers))
+    if cur_x % 2 == 0:
+        if cur_y % 2 == 0:
+            cur_type = EVEN_EVEN
+        else:
+            cur_type = EVEN_ODD
+    else:
+        if cur_y % 2 == 0:
+            cur_type = ODD_EVEN
+        else:
+            cur_type = ODD_ODD
+
+    return cur_type
+
+
+# This function returns the list of sources current receiver expects data from
+# which is all 8 directions if boundary is not violated
+def get_receiver_source_list(cur_id, no_workers):
+    cur_x = (cur_id - 1) // int(sqrt(no_workers))
+    cur_y = (cur_id - 1) % int(sqrt(no_workers))
+    sources = []
+    if cur_x - 1 >= 0:
+        sources.append((cur_x - 1, cur_y))
+        if cur_y - 1 >= 0:
+            sources.append((cur_x - 1, cur_y - 1))
+        if cur_y + 1 < sqrt(no_workers):
+            sources.append((cur_x - 1, cur_y + 1))
+    if cur_x + 1 < sqrt(no_workers):
+        sources.append((cur_x + 1, cur_y))
+        if cur_y - 1 >= 0:
+            sources.append((cur_x + 1, cur_y - 1))
+        if cur_y + 1 < sqrt(no_workers):
+            sources.append((cur_x + 1, cur_y + 1))
+    if cur_y - 1 >= 0:
+        sources.append((cur_x, cur_y - 1))
+    if cur_y + 1 < sqrt(no_workers):
+        sources.append((cur_x, cur_y + 1))
+
+    # Convert coordinates to processors id
+    for i in range(len(sources)):
+        x, y = sources[i]
+        sources[i] = x * sqrt(no_workers) + y + 1
+
+    return sources
+
+
+# This function returns the list of destinations current sender should send data
+def get_sender_destination_list(cur_id, no_workers, phase):
+    cur_x = (cur_id - 1) // int(sqrt(no_workers))
+    cur_y = (cur_id - 1) % int(sqrt(no_workers))
+
+    cur_type = get_type_from_id(cur_id, no_workers)
+
+    destinations = []
+
+    if phase == EVEN_EVEN:
+        if cur_type == EVEN_EVEN:
+            print("Error in deadlock handling")
+        elif cur_type == EVEN_ODD:
+            # Put the right and left processors with boundary check
+            if cur_y - 1 >= 0:
+                destinations.append((cur_x, cur_y - 1))
+            if cur_y + 1 < sqrt(no_workers):
+                destinations.append((cur_x, cur_y + 1))
+        elif cur_type == ODD_EVEN:
+            # Put the top and bottom processors with boundary check
+            if cur_x - 1 >= 0:
+                destinations.append((cur_x - 1, cur_y))
+            if cur_x + 1 < sqrt(no_workers):
+                destinations.append((cur_x + 1, cur_y))
+        elif cur_type == ODD_ODD:
+            # Put the top right, top left, bottom right, bottom left processors with boundary check
+            if cur_x - 1 >= 0:
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x - 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x - 1, cur_y + 1))
+            if cur_x + 1 < sqrt(no_workers):
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x + 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x + 1, cur_y + 1))
+
+    elif phase == ODD_ODD:
+        if cur_type == ODD_ODD:
+            print("Deadlock error")
+        elif cur_type == EVEN_ODD:
+            # Put the top and bottom processors with boundary check
+            if cur_x - 1 >= 0:
+                destinations.append((cur_x - 1, cur_y))
+            if cur_x + 1 < sqrt(no_workers):
+                destinations.append((cur_x + 1, cur_y))
+        elif cur_type == ODD_EVEN:
+            # Put the right and left processors with boundary check
+            if cur_y - 1 >= 0:
+                destinations.append((cur_x, cur_y - 1))
+            if cur_y + 1 < sqrt(no_workers):
+                destinations.append((cur_x, cur_y + 1))
+        elif cur_type == EVEN_EVEN:
+            # Put the top right, top left, bottom right, bottom left processors with boundary check
+            if cur_x - 1 >= 0:
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x - 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x - 1, cur_y + 1))
+            if cur_x + 1 < sqrt(no_workers):
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x + 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x + 1, cur_y + 1))
+
+    elif phase == ODD_EVEN:
+        if cur_type == ODD_EVEN:
+            print("Deadlock error")
+        elif cur_type == EVEN_EVEN:
+            # Put the top and bottom processors with boundary check
+            if cur_x - 1 >= 0:
+                destinations.append((cur_x - 1, cur_y))
+            if cur_x + 1 < sqrt(no_workers):
+                destinations.append((cur_x + 1, cur_y))
+        elif cur_type == ODD_ODD:
+            # Put the right and left processors with boundary check
+            if cur_y - 1 >= 0:
+                destinations.append((cur_x, cur_y - 1))
+            if cur_y + 1 < sqrt(no_workers):
+                destinations.append((cur_x, cur_y + 1))
+        elif cur_type == EVEN_ODD:
+            # Put the top right, top left, bottom right, bottom left processors with boundary check
+            if cur_x - 1 >= 0:
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x - 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x - 1, cur_y + 1))
+            if cur_x + 1 < sqrt(no_workers):
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x + 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x + 1, cur_y + 1))
+
+    elif phase == EVEN_ODD:
+        if cur_type == EVEN_ODD:
+            print("Deadlock error")
+        elif cur_type == ODD_ODD:
+            # Put the top and bottom processors with boundary check
+            if cur_x - 1 >= 0:
+                destinations.append((cur_x - 1, cur_y))
+            if cur_x + 1 < sqrt(no_workers):
+                destinations.append((cur_x + 1, cur_y))
+        elif cur_type == EVEN_EVEN:
+            # Put the right and left processors with boundary check
+            if cur_y - 1 >= 0:
+                destinations.append((cur_x, cur_y - 1))
+            if cur_y + 1 < sqrt(no_workers):
+                destinations.append((cur_x, cur_y + 1))
+        elif cur_type == ODD_EVEN:
+            # Put the top right, top left, bottom right, bottom left processors with boundary check
+            if cur_x - 1 >= 0:
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x - 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x - 1, cur_y + 1))
+            if cur_x + 1 < sqrt(no_workers):
+                if cur_y - 1 >= 0:
+                    destinations.append((cur_x + 1, cur_y - 1))
+                if cur_y + 1 < sqrt(no_workers):
+                    destinations.append((cur_x + 1, cur_y + 1))
+
+    # Convert coordinates to processors id
+    for i in range(len(destinations)):
+        x, y = destinations[i]
+        destinations[i] = x * sqrt(no_workers) + y + 1
+
+    return destinations
+
+
+# This function calculates the number of attackable units given by the air unit
+# takes a subgrid (5x5) at whose center lies the air unit we are interested at
+def calc_air_attackables(attack_grid):
+    cur_x = 2
+    cur_y = 2
+    attackables = 0
+
+    # Chek bottom location
+    if attack_grid[cur_x + 1][cur_y] == ".":
+        if attack_grid[cur_x + 2][cur_y] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+    # Check top location
+    if attack_grid[cur_x - 1][cur_y] == ".":
+        if attack_grid[cur_x - 2][cur_y] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+    # Check left location
+    if attack_grid[cur_x][cur_y - 1] == ".":
+        if attack_grid[cur_x][cur_y - 2] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+    # Check right location
+    if attack_grid[cur_x][cur_y + 1] == ".":
+        if attack_grid[cur_x][cur_y + 2] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+    # Check top left
+    if attack_grid[cur_x - 1][cur_y - 1] == ".":
+        if attack_grid[cur_x - 2][cur_y - 2] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+    # Check top right
+    if attack_grid[cur_x - 1][cur_y + 1] == ".":
+        if attack_grid[cur_x - 2][cur_y + 2] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+    # Check bottom left
+    if attack_grid[cur_x + 1][cur_y - 1] == ".":
+        if attack_grid[cur_x + 2][cur_y - 2] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+    # Check bottom right
+    if attack_grid[cur_x + 1][cur_y + 1] == ".":
+        if attack_grid[cur_x + 2][cur_y + 2] != ".":
+            attackables += 1
+    else:
+        attackables += 1
+
+
+# Calculate the new location of the given air unit in the subgrid
+# takes a subgrid (7x7) at whose center lies the air unit we are interested at
+def optimum_air_location(location_grid):
+    cur_x = 3
+    cur_y = 3
+    checked_xs = [cur_x - 1, cur_x, cur_x + 1]
+    checked_ys = [cur_y - 1, cur_y, cur_y + 1]
+
+    opt_x, opt_y = -1, -1
+    attackables = -1
+
+    for new_x in checked_xs:
+        for new_y in checked_ys:
+            # Calculate the 5x5 subgrid at whose center lies the new_x and new_y
+            attack_grid = []
+            for i in range(new_x - 2, new_x + 3):
+                row = []
+                for j in range(new_y - 2, new_y + 3):
+                    row.append(location_grid[i][j])
+                attack_grid.append(row)
+
+            new_attackables = calc_air_attackables(
+                attack_grid
+            )  # TODO check tie condition from forum
+            should_change = False
+            if new_attackables >= attackables:
+                if new_attackables == attackables:
+                    if new_x < opt_x:
+                        should_change = True
+                    elif new_x == opt_x:
+                        if new_y < opt_y:
+                            should_change = True
+                else:
+                    should_change = True
+
+            if should_change:
+                attackables = new_attackables
+                opt_x = new_x
+                opt_y = new_y
+
+    return (opt_x, opt_y)
 
 
 class Unit:
@@ -191,26 +489,59 @@ if rank == 0:
         for j in range(R):
             print("Starting round", j + 1)
 
-            # Send start phase 1 signals to workers
+            # To avoid deadlock seperate phase 1, phase 1 post  to 4 groups
+            # First group: x and y are even
+            # Second group: x odd y even
+            # Third group: x even y odd
+            # Fourth group: x and y are even
+
+            groups = [EVEN_EVEN, ODD_EVEN, EVEN_ODD, ODD_ODD]
+
+            for cur_group in groups:
+                # Send start phase 1 signals to workers
+                for k in range(1, no_workers + 1):
+                    cur_type = get_type_from_id(k, no_workers)
+                    receive = cur_type == cur_group
+                    worker_data = {}
+                    worker_data["success"] = True
+                    worker_data["receive"] = receive
+                    worker_data["cur_group"] = cur_group
+                    comm.send(worker_data, dest=k, tag=START_PHASE_1)
+
+                # Wait for all workers to finish phase 1
+                for k in range(no_workers):
+                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1)
+                    if not res:
+                        print("Error occured after phase 1")
+
+            for cur_group in groups:
+                # send start post phase 1signals to workers
+                for k in range(1, no_workers + 1):
+                    cur_type = get_type_from_id(k, no_workers)
+                    receive = cur_type == cur_group
+                    worker_data = {}
+                    worker_data["success"] = True
+                    worker_data["receive"] = receive
+                    worker_data["cur_group"] = cur_group
+                    comm.send(worker_data, dest=k, tag=START_PHASE_1_POST)
+
+                # Wait for all workers to finish post phase 1
+                for k in range(no_workers):
+                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1_POST)
+                    if not res:
+                        print("Error occured after post phase 1")
+
+            # Send start post post phase 1 signals to workers
             for k in range(1, no_workers + 1):
-                comm.send(True, dest=k, tag=START_PHASE_1)
+                comm.send(True, dest=k, tag=START_PHASE_1_POST_POST)
 
-            # Wait for all workers to finish phase 1
+            # Wait for all workers to finish post post phase 1
             for k in range(no_workers):
-                res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1)
+                res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1_POST_POST)
                 if not res:
-                    print("Error occured after phase 1")
+                    print("Error occured after post post phase 1")
 
-            # Post process phase 1
-            for k in range(1, no_workers + 1):
-                comm.send(True, dest=k, tag=START_PHASE_1_POST)
-
-            # Wait for all workers to finish post phase 1
-            for k in range(no_workers):
-                res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1_POST)
-                if not res:
-                    print("Error occured after post phase 1")
-
+            
             # Send start phase 2 signals to workers
             for k in range(1, no_workers + 1):
                 comm.send(True, dest=k, tag=START_PHASE_2)
@@ -258,15 +589,15 @@ else:
     # Notice receive flag determines if processors wait for data
     # at each time, one out of four group of processors will be waiting for data
     # this approach avoids deadlocks in checkered pattern
-    def phase1(receive=False):
+    def phase1(rank, cur_group, receive):
         pass
 
     # Function to run in phase 2 which is the post processing of phase 1
     # places air units in a given grid, and merges if necessary
-    def post_phase1():
+    def post_phase1(rank, cur_group, receive):
         pass
 
-    def phase2(receive=False):
+    def phase2(receive):
         pass
 
     def phase3():
@@ -275,29 +606,49 @@ else:
     def phase4(send_back):
         pass
 
+    sub_grid = []
+    # this list holds the future positions of air units in post post phase 1
+    # The format will be as follows:
+    # (processor_id, rel_x, rel_y, unit)
+    # where processor_id holds where the unit will belong in the future
+    # rel_x and rel_y holds the relative position of the unit in the subgrid
+    # unit holds the unit itself which will be from air faction
+    airs_to_place = []
+
     while True:
         # Wait for subgrid at the start of wave
         status = MPI.Status()
         incoming_data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
         source = status.Get_source()
-            
+
         tag = status.Get_tag()
         if source == MASTER:
             if tag == SUB_GRID:
                 print("Sub grid of processor", rank, "is")
                 print_grid(incoming_data, len(incoming_data))
+                sub_grid = incoming_data
                 # Send master ready after wave flag
                 time.sleep(1)
                 comm.send(True, dest=MASTER, tag=WAVE_READY)
             elif tag == START_PHASE_1:
                 print("Processor", rank, "starting phase 1")
-                phase1()
+                success = incoming_data["success"]
+                if not success:
+                    print("Erron in phase1")
+                receive = incoming_data["receive"]
+                cur_group = incoming_data["cur_group"]
+                phase1(rank, cur_group, receive)
                 # sleep thread for one second
                 time.sleep(1)
                 comm.send(True, dest=MASTER, tag=READY_1)
             elif tag == START_PHASE_1_POST:
                 print("Processor", rank, "starting post phase 1")
-                post_phase1()
+                success = incoming_data["success"]
+                if not success:
+                    print("Erron in post phase1")
+                receive = incoming_data["receive"]
+                cur_group = incoming_data["cur_group"]
+                post_phase1(rank, cur_group, receive)
                 time.sleep(1)
                 comm.send(True, dest=MASTER, tag=READY_1_POST)
             elif tag == START_PHASE_2:
@@ -316,7 +667,6 @@ else:
                 phase4(send_back)
                 time.sleep(1)
                 comm.send(True, dest=MASTER, tag=READY_4)
-                
 
         else:
             pass
