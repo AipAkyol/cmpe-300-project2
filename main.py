@@ -822,9 +822,8 @@ else:
                             air_y - 3 : air_y + 4
                         ]
                         new_x, new_y = optimum_air_location(search_grid)
-                        dest_id = get_processor_id_air(
-                            new_x, new_y, x, rank, no_workers
-                        )
+                        dest_id = get_processor_id_air(new_x, new_y, x, rank, no_workers)
+                        
 
     # places air units in a given grid, and merges if necessary
     def post_phase1(rank, cur_group, receive):
