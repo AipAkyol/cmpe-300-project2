@@ -275,7 +275,7 @@ class Unit:
                 attackables = calc_water_attackables(search_grid)
             elif source_unit.faction == AIR:
                 attackables = calc_air_attackables(search_grid)
-            print("Attackables for unit at", self.x, self.y, "are:")
+            #print("Attackables for unit at", self.x, self.y, "are:")
             for unit in attackables:
                 print(unit.x, unit.y, unit.faction)
             
