@@ -843,11 +843,14 @@ else:
                     )
                     if dest_id != rank:
                         print("Error in post phase 3 in adding fire unit")
-
+            print("Fire units to buff berfore loop")
+            print(fire_units_to_buff)
             for fire_unit_checked in fire_units_to_buff:
                 dest_id = get_id_from_global_pos(
                     fire_unit_checked.x, fire_unit_checked.y, len(sub_grid), no_workers
                 )
+                print("Chcekd fire unit at ", fire_unit_checked.x, fire_unit_checked.y, " has dest id ", dest_id)
+                print()
                 if rank == dest_id:
                     # Get local x and y
                     local_x, local_y = get_sub_grid_loc_from_global(
@@ -862,6 +865,7 @@ else:
                     # Remove the fire unit from the list
                     len_before = len(fire_units_to_buff)
                     fire_units_to_buff.remove(fire_unit_checked)
+                    print("del1")
                     print("Deleting fire unit at ", fire_unit_checked.x, fire_unit_checked.y)
                     len_after = len(fire_units_to_buff)
                     if len_before == len_after:
@@ -881,6 +885,7 @@ else:
                         fire_units_to_send.append(fire_unit)
                         len_before = len(fire_units_to_buff)
                         fire_units_to_buff.remove(fire_unit)
+                        print("del2")
                         print("Deleting fire unit at ", fire_unit.x, fire_unit.y)
                         len_after = len(fire_units_to_buff)
                         if len_before == len_after:
