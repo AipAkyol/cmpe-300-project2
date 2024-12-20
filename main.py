@@ -491,7 +491,7 @@ if rank == 0:
                 res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_3)
                 if not res:
                     print("Error occured after phase 3")
-            
+
             # Post phase 3
             for cur_group in groups:
                 # Send start post phase 3 signals to workers
@@ -510,7 +510,6 @@ if rank == 0:
                     res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_3_POST)
                     if not res:
                         print("Error occured after post phase 3")
-                
 
             iteration = [""]
             if last_round:
@@ -667,15 +666,18 @@ else:
 
     # places air units in a given grid, and merges if necessary
     def post_phase1(rank, cur_group, receive):
+        global airs_to_place
         if not receive:
             destinations = get_sender_destination_list(rank, no_workers, cur_group)
             for dest in destinations:
                 airs_to_send = []
+                airs_to_place_remove = []
                 for air in airs_to_place:
                     air_dest, rel_x, rel_y, unit = air
                     if air_dest == dest:
                         airs_to_send.append((dest, rel_x, rel_y, unit))
-                        airs_to_place.remove(air) # this line
+                        airs_to_place_remove.append(air)
+                airs_to_place = [ un for un in airs_to_place if un not in airs_to_place_remove]
             comm.send(airs_to_send, dest=dest, tag=AIR_NEW_LOC_INFO)
         elif receive:
             sources = get_receiver_source_list(rank, no_workers)
@@ -771,6 +773,7 @@ else:
                 comm.send(shared_sub_grid_part, dest=dest, tag=ATTACK_LOC_INFO)
 
     def post_phase2(rank, cur_group, receive):
+        global all_units_to_attack
         if receive:
             sources = get_receiver_source_list(rank, no_workers)
             for source in sources:
@@ -781,6 +784,7 @@ else:
             destinations = get_sender_destination_list(rank, no_workers, cur_group)
             for dest in destinations:
                 units_vectors_to_send = []
+                all_units_to_attack_remove = []
                 for unit_vector in all_units_to_attack:
                     source_unit, dest_unit = unit_vector
                     dest_id = get_id_from_global_pos(
@@ -788,8 +792,9 @@ else:
                     )
                     if dest_id == dest:
                         units_vectors_to_send.append(unit_vector)
-                        all_units_to_attack.remove(unit_vector)
+                        all_units_to_attack_remove.append(unit_vector)
                 comm.send(units_vectors_to_send, dest=dest, tag=DAMAGE_LIST_INFO)
+                all_units_to_attack = [ unit for unit in all_units_to_attack if unit not in all_units_to_attack_remove]
 
     def phase3(rank, cur_group, receive):
         # Queue all the damages in the list
@@ -829,6 +834,7 @@ else:
         all_units_to_attack.clear()
 
     def post_phase3(rank, cur_group, receive):
+        global fire_units_to_buff
         if receive:
             sources = get_receiver_source_list(rank, no_workers)
             for source in sources:
@@ -845,11 +851,18 @@ else:
                         print("Error in post phase 3 in adding fire unit")
             print("Fire units to buff berfore loop")
             print(fire_units_to_buff)
+            fire_units_to_remove = []
             for fire_unit_checked in fire_units_to_buff:
                 dest_id = get_id_from_global_pos(
                     fire_unit_checked.x, fire_unit_checked.y, len(sub_grid), no_workers
                 )
-                print("Chcekd fire unit at ", fire_unit_checked.x, fire_unit_checked.y, " has dest id ", dest_id)
+                print(
+                    "Chcekd fire unit at ",
+                    fire_unit_checked.x,
+                    fire_unit_checked.y,
+                    " has dest id ",
+                    dest_id,
+                )
                 print()
                 if rank == dest_id:
                     # Get local x and y
@@ -858,23 +871,25 @@ else:
                     )
                     sub_grid_fire_unit = sub_grid[local_x][local_y]
                     if sub_grid_fire_unit.faction != FIRE:
-                        print("Error in post phase 3 in adding fire unit different faction or point")
+                        print(
+                            "Error in post phase 3 in adding fire unit different faction or point"
+                        )
                     sub_grid_fire_unit.attack += 1
                     if sub_grid_fire_unit.attack > 6:
                         sub_grid_fire_unit.attack = 6
                     # Remove the fire unit from the list
                     len_before = len(fire_units_to_buff)
-                    fire_units_to_buff.remove(fire_unit_checked)
-                    print("del1")
-                    print("Deleting fire unit at ", fire_unit_checked.x, fire_unit_checked.y)
-                    len_after = len(fire_units_to_buff)
-                    if len_before == len_after:
-                        print("HHHHHHHHHH Error in post phase 3 in removing fire unit")
+                    fire_units_to_remove.append(fire_unit_checked)
+                    
+            fire_units_to_buff = [
+                unit for unit in fire_units_to_buff if unit not in fire_units_to_remove
+            ]
 
         else:  # Share data
             destinations = get_sender_destination_list(rank, no_workers, cur_group)
             for dest in destinations:
                 fire_units_to_send = []
+                fire_units_to_remove = []
                 for fire_unit in fire_units_to_buff:
                     dest_id = get_id_from_global_pos(
                         fire_unit.x, fire_unit.y, len(sub_grid), no_workers
@@ -884,20 +899,25 @@ else:
                         print("asd***********")
                         fire_units_to_send.append(fire_unit)
                         len_before = len(fire_units_to_buff)
-                        fire_units_to_buff.remove(fire_unit)
-                        print("del2")
-                        print("Deleting fire unit at ", fire_unit.x, fire_unit.y)
-                        len_after = len(fire_units_to_buff)
-                        if len_before == len_after:
-                            print("Error in post phase 3 in removing fire unit in share data")
+                        fire_units_to_remove.append(fire_unit)
+                        
                 comm.send(fire_units_to_send, dest=dest, tag=FIRE_LIST_INFO)
+                fire_units_to_buff = [
+                    unit
+                    for unit in fire_units_to_buff
+                    if unit not in fire_units_to_remove
+                ]
 
     def phase4(last_round, receive, cur_group):
         # Assert all untis to attack and fire buff lists are empty
         if len(all_units_to_attack) != 0 or len(fire_units_to_buff) != 0:
             print("All units to attack are empty", len(all_units_to_attack))
             print("Fire units to buff are empty", len(fire_units_to_buff))
-            print("Fire unit in buff lists are ", fire_units_to_buff[0].x, fire_units_to_buff[0].y)
+            print(
+                "Fire unit in buff lists are ",
+                fire_units_to_buff[0].x,
+                fire_units_to_buff[0].y,
+            )
             print("Error in phase 4 about lists")
         pass
 
@@ -976,6 +996,7 @@ else:
                 comm.send(shared_sub_grid_part, dest=dest, tag=WATER_FLOOD_INFO)
 
     def post_phase4(rank, cur_group, receive):
+        global places_to_flood
         if receive:
             sources = get_receiver_source_list(rank, no_workers)
             for source in sources:
@@ -997,11 +1018,13 @@ else:
             destinations = get_sender_destination_list(rank, no_workers, cur_group)
             for dest in destinations:
                 places_to_send = []
+                places_to_flood_remove = []
                 for place in places_to_flood:
                     dest_id, rel_x, rel_y = place
                     if dest_id == dest:
                         places_to_send.append(place)
-                        places_to_flood.remove(place)
+                        places_to_flood_remove.append(place)
+                places_to_flood= [place for place in places_to_flood if place not in places_to_flood_remove]
                 comm.send(places_to_send, dest=dest, tag=FLOOD_PLACE_EXCHANGE)
 
     while True:
