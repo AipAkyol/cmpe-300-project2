@@ -1,17 +1,21 @@
-from math import sqrt
+class Deneme:
+    def __init__(self, k):
+        self.a = k
+        
+        
+x = Deneme(2)
+y = Deneme(3)
 
-arr = []
-for i in range(0, 10):
-    row = []
-    for k in range(1, 10):
-        row.append(i * 9 + k)
-    arr.append(row)
 
-print(arr)
-extended_air_x = 3
-extended_air_y = 3
-search = arr[
-    extended_air_x - 3 : extended_air_x + 4,
-    extended_air_y - 3 : extended_air_y + 4
-]
-print(search)
+arr = [x, y]
+arr2 = []
+for i in arr:
+    arr2.append(i)
+arr.clear()
+print(arr2)
+
+for a in arr2:
+  if a.a == 2:
+    arr2.remove(a)
+    
+print(arr2)

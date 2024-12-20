@@ -232,7 +232,8 @@ def calc_air_attackables_count(attack_grid):
 class Unit:
     def set_props(self, faction):
         self.will_heal = False
-        self.damage_queue = []
+        self.damage_queue = 0
+        self.fire_attackers = []
         if faction == EARTH:
             self.hp = 18
             self.max_hp = 18
@@ -285,7 +286,17 @@ class Unit:
 
     def heal(self):
         self.hp += self.heal_rate
+        self.hp = min(self.hp, self.max_hp)
         self.will_heal = False
 
     def apply_damage(self):
-        pass
+        # Earth special ability
+        is_dead = False
+        if self.faction == EARTH:
+            self.damage_queue -= (self.damage_queue / 2)
+        self.hp -= self.damage_queue
+        if self.hp <= 0:
+            is_dead = True
+        
+
+        return self.fire_attackers, is_dead
