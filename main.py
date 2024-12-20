@@ -214,6 +214,12 @@ def generate_grid_from_wave(grid, wave, is_first=False):
                 continue
             unit = Unit(x, y, faction)
             grid[x][y] = unit
+    # Reset attack power of fires
+    for row in grid:
+        for cell in row:
+            if cell != "." and cell.faction == FIRE:
+                cell.attack = 1
+                
     return grid
 
 
@@ -366,7 +372,7 @@ if rank == 0:
         print("Starting wave", i + 1)
         grid = generate_grid_from_wave(grid, waves[i], init_wave)
         print("Grid after wave ", i + 1)
-        print_grid(grid, N)
+        debug_print_grid(grid)
         # Send each part of the grid to a processor
         # processor no increases to right and down
         for k in range(1, no_workers + 1):
@@ -406,9 +412,9 @@ if rank == 0:
 
             groups = [EVEN_EVEN, ODD_EVEN, EVEN_ODD, ODD_ODD]
 
+            print("Starting phase 1 of round", j + 1)
             for cur_group in groups:
                 # Send start phase 1 signals to workers
-                print(f"Running group {get_group_string(cur_group)} of phase 1")
                 for k in range(1, no_workers + 1):
                     cur_type = get_type_from_id(k, no_workers)
                     receive = cur_type == cur_group
@@ -420,13 +426,13 @@ if rank == 0:
 
                 # Wait for all workers to finish phase 1
                 for k in range(no_workers):
-                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1)
+                    res = comm.recv(source=(k + 1), tag=READY_1)
                     if not res:
                         print("Error occured after phase 1")
 
+            print("Starting post phase 1 of round", j + 1)
             for cur_group in groups:
                 # send start post phase 1 signals to workers
-                print(f"Running group {get_group_string(cur_group)} of post phase 1")
                 for k in range(1, no_workers + 1):
                     cur_type = get_type_from_id(k, no_workers)
                     receive = cur_type == cur_group
@@ -438,7 +444,8 @@ if rank == 0:
 
                 # Wait for all workers to finish post phase 1
                 for k in range(no_workers):
-                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1_POST)
+                    print("Waiting for post phase 1 of processor", k + 1)
+                    res = comm.recv(source=(k + 1), tag=READY_1_POST)
                     if not res:
                         print("Error occured after post phase 1")
 
@@ -448,13 +455,13 @@ if rank == 0:
 
             # Wait for all workers to finish post post phase 1
             for k in range(no_workers):
-                res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_1_POST_POST)
+                res = comm.recv(source=(k + 1), tag=READY_1_POST_POST)
                 if not res:
                     print("Error occured after post post phase 1")
 
+            print("Starting phase 2 of round", j + 1)
             for cur_group in groups:
                 # Send start phase 2 signals to workers
-                print(f"Running group {get_group_string(cur_group)} of phase 2")
                 for k in range(1, no_workers + 1):
                     cur_type = get_type_from_id(k, no_workers)
                     receive = cur_type == cur_group
@@ -466,13 +473,13 @@ if rank == 0:
 
                 # Wait for all workers to finish phase 2
                 for k in range(no_workers):
-                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_2)
+                    res = comm.recv(source=(k+1), tag=READY_2)
                     if not res:
                         print("Error occured after phase 2")
 
+            print("Starting post phase 2 of round", j + 1)
             for cur_group in groups:
                 # Send start post phase 2 signals to workers
-                print(f"Running group {get_group_string(cur_group)} of post phase 2")
                 for k in range(1, no_workers + 1):
                     cur_type = get_type_from_id(k, no_workers)
                     receive = cur_type == cur_group
@@ -484,7 +491,7 @@ if rank == 0:
 
                 # Wait for all workers to finish post phase 2
                 for k in range(no_workers):
-                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_2_POST)
+                    res = comm.recv(source=(k + 1), tag=READY_2_POST)
                     if not res:
                         print("Error occured after post phase 2")
 
@@ -494,14 +501,14 @@ if rank == 0:
 
             # Wait for all workers to finish phase 3
             for k in range(no_workers):
-                res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_3)
+                res = comm.recv(source=(k + 1), tag=READY_3)
                 if not res:
                     print("Error occured after phase 3")
 
             # Post phase 3
+            print("Starting post phase 3 of round", j + 1)
             for cur_group in groups:
                 # Send start post phase 3 signals to workers
-                print(f"Running group {get_group_string(cur_group)} of post phase 3")
                 for k in range(1, no_workers + 1):
                     cur_type = get_type_from_id(k, no_workers)
                     receive = cur_type == cur_group
@@ -513,7 +520,7 @@ if rank == 0:
 
                 # Wait for all workers to finish post phase 3
                 for k in range(no_workers):
-                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_3_POST)
+                    res = comm.recv(source=(k + 1), tag=READY_3_POST)
                     if not res:
                         print("Error occured after post phase 3")
 
@@ -534,7 +541,7 @@ if rank == 0:
 
                 # Wait for all workers to finish phase 4
                 for k in range(no_workers):
-                    res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_4)
+                    res = comm.recv(source=(k + 1), tag=READY_4)
                     if not res:
                         print("Error occured after phase 4")
 
@@ -551,7 +558,7 @@ if rank == 0:
 
                     # Wait for all workers to finish post phase 4
                     for k in range(no_workers):
-                        res = comm.recv(source=MPI.ANY_SOURCE, tag=READY_4_POST)
+                        res = comm.recv(source=(k + 1), tag=READY_4_POST)
                         new_sub_grid = res["new_sub_grid"]
                         update_grid_with_sub_grid(
                             grid, new_sub_grid, res["processor_id"], no_workers
@@ -559,8 +566,24 @@ if rank == 0:
                         if not res:
                             print("Error occured after post phase 4")
 
-            print("Round", j + 1, "completed")
+            # Send debug signal to workers
+            for k in range(1, no_workers + 1):
+                comm.send(True, dest=k, tag=DEBUG_START)
+            
+            # Wait for all workers to finish debug
+            for k in range(no_workers):
+                res = comm.recv(source=(k + 1), tag=DEBUG_READY)
+                new_sub_grid = res["new_sub_grid"]
+                update_grid_with_sub_grid(
+                    grid, new_sub_grid, res["processor_id"], no_workers
+                )
+                if not res:
+                    print("Error occured after debug")
+            
+            print("Grid after round", j + 1)
             debug_print_grid(grid)
+            print("Round", j + 1, "completed")
+            
             
         init_wave = False
 
@@ -605,7 +628,6 @@ else:
                 )
                 comm.send(shared_sub_grid_part, dest=dest, tag=AIR_LOC_INFO)
         elif receive:  # Collect data, and find optimal positions for air units
-            print("Inside receive of processor", rank)
             sources = get_receiver_source_list(rank, no_workers)
             len_sub_grid = len(sub_grid)  # x represents border length of subgrid
             extended_sub_grid = [
@@ -615,17 +637,13 @@ else:
             for i in range(len_sub_grid):
                 for j in range(len_sub_grid):
                     extended_sub_grid[i + 3][j + 3] = sub_grid[i][j]
-            print_grid(sub_grid, len_sub_grid)
+ 
             for source in sources:
                 sub_grid_part = comm.recv(source=source, tag=AIR_LOC_INFO)
                 relative_pos = calc_relative_pos(rank, source, no_workers)
-                print_relative_pos(relative_pos)
                 append_source_to_extended(
                     extended_sub_grid, sub_grid_part, relative_pos
                 )
-
-            print("Extended subgrid of processor", rank, "is")
-            print_grid(extended_sub_grid, len_sub_grid + 6)
 
             # Find the optimal location of air units
             for row in sub_grid:
@@ -676,7 +694,7 @@ else:
                         airs_to_send.append((dest, rel_x, rel_y, unit))
                         airs_to_place_remove.append(air)
                 airs_to_place = [ un for un in airs_to_place if un not in airs_to_place_remove]
-            comm.send(airs_to_send, dest=dest, tag=AIR_NEW_LOC_INFO)
+                comm.send(airs_to_send, dest=dest, tag=AIR_NEW_LOC_INFO)
         elif receive:
             sources = get_receiver_source_list(rank, no_workers)
             for source in sources:
@@ -726,21 +744,13 @@ else:
             for i in range(len_sub_grid):
                 for j in range(len_sub_grid):
                     extended_sub_grid[i + 3][j + 3] = sub_grid[i][j]
-            # print("Initial subgrid of processor", rank, "is")
-            # print_grid(sub_grid, len_sub_grid)
-            # print(f"Processor {rank} is receiving the followings: ")
+        
             for source in sources:
                 sub_grid_part = comm.recv(source=source, tag=ATTACK_LOC_INFO)
-                # debug_print_grid(sub_grid_part)
                 relative_pos = calc_relative_pos(rank, source, no_workers)
-                # print(f"From source: {source} with relative pos: ")
-                # print_relative_pos(relative_pos)
                 append_source_to_extended(
                     extended_sub_grid, sub_grid_part, relative_pos
                 )
-
-            # print("Extended subgrid of processor", rank, "is")
-            # print_grid(extended_sub_grid, len_sub_grid + 6)
 
             for col_idx in range(len(sub_grid)):
                 for row_idx in range(len(sub_grid[0])):
@@ -823,7 +833,14 @@ else:
                 if is_dead:
                     sub_grid[row_idx][col_idx] = "."
                     for fire_to_buf in fires_to_buff:
-                        fire_units_to_buff.append(fire_to_buf)
+                        # Check unit with same positions exist in fire_units_to_buff
+                        duplicate = False
+                        for fire_unit in fire_units_to_buff:
+                            if fire_unit.x == fire_to_buf.x and fire_unit.y == fire_to_buf.y:
+                                duplicate = True
+                                break
+                        if not duplicate:
+                            fire_units_to_buff.append(fire_to_buf)
                 unit.fire_attackers.clear()
                 unit.damage_queue = 0
 
@@ -836,27 +853,25 @@ else:
             for source in sources:
                 fire_units = comm.recv(source=source, tag=FIRE_LIST_INFO)
                 for fire_unit in fire_units:
-                    fire_units_to_buff.append(fire_unit)
+                    duplicate = False
+                    for dup_search in fire_units_to_buff:
+                        if dup_search.x == fire_unit.x and dup_search.y == fire_unit.y:
+                            duplicate = True
+                            break
+                    if not duplicate:
+                        fire_units_to_buff.append(fire_unit)
                     dest_id = get_id_from_global_pos(
                         fire_unit.x, fire_unit.y, len(sub_grid), no_workers
                     )
                     if dest_id != rank:
                         print("Error in post phase 3 in adding fire unit")
 
-            print(fire_units_to_buff)
             fire_units_to_remove = []
             for fire_unit_checked in fire_units_to_buff:
                 dest_id = get_id_from_global_pos(
                     fire_unit_checked.x, fire_unit_checked.y, len(sub_grid), no_workers
                 )
-                print(
-                    "Chcekd fire unit at ",
-                    fire_unit_checked.x,
-                    fire_unit_checked.y,
-                    " has dest id ",
-                    dest_id,
-                )
-                print()
+            
                 if rank == dest_id:
                     # Get local x and y
                     local_x, local_y = get_sub_grid_loc_from_global(
@@ -864,15 +879,13 @@ else:
                     )
                     sub_grid_fire_unit = sub_grid[local_x][local_y]
                     if sub_grid_fire_unit.faction != FIRE:
-                        print(
-                            "Error in post phase 3 in adding fire unit different faction or point"
-                        )
-                    sub_grid_fire_unit.attack += 1
-                    if sub_grid_fire_unit.attack > 6:
-                        sub_grid_fire_unit.attack = 6
-                    # Remove the fire unit from the list
-                    len_before = len(fire_units_to_buff)
-                    fire_units_to_remove.append(fire_unit_checked)
+                        pass
+                        # fire to buff may be dead
+                    else:
+                        sub_grid_fire_unit.attack += 1
+                        if sub_grid_fire_unit.attack > 6:
+                            sub_grid_fire_unit.attack = 6
+                        fire_units_to_remove.append(fire_unit_checked)
                     
             fire_units_to_buff = [
                 unit for unit in fire_units_to_buff if unit not in fire_units_to_remove
@@ -887,9 +900,7 @@ else:
                     dest_id = get_id_from_global_pos(
                         fire_unit.x, fire_unit.y, len(sub_grid), no_workers
                     )
-                    print("Dest id is ", dest_id)
                     if dest_id == dest:
-                        print("asd***********")
                         fire_units_to_send.append(fire_unit)
                         len_before = len(fire_units_to_buff)
                         fire_units_to_remove.append(fire_unit)
@@ -904,13 +915,7 @@ else:
     def phase4(last_round, receive, cur_group):
         # Assert all untis to attack and fire buff lists are empty
         if len(all_units_to_attack) != 0 or len(fire_units_to_buff) != 0:
-            print("All units to attack are empty", len(all_units_to_attack))
-            print("Fire units to buff are empty", len(fire_units_to_buff))
-            print(
-                "Fire unit in buff lists are ",
-                fire_units_to_buff[0].x,
-                fire_units_to_buff[0].y,
-            )
+        
             print("Error in phase 4 about lists")
         pass
 
@@ -984,7 +989,7 @@ else:
                     shared_sub_grid_part = get_subgrid_to_share_air(
                         sub_grid, rank, dest, no_workers
                     )
-                comm.send(shared_sub_grid_part, dest=dest, tag=WATER_FLOOD_INFO)
+                    comm.send(shared_sub_grid_part, dest=dest, tag=WATER_FLOOD_INFO)
 
     def post_phase4(rank, cur_group, receive):
         global places_to_flood
@@ -1027,14 +1032,12 @@ else:
         tag = status.Get_tag()
         if source == MASTER:
             if tag == SUB_GRID:
-                print("Sub grid of processor", rank, "is")
-                print_grid(incoming_data, len(incoming_data))
+            
                 sub_grid = incoming_data
                 # Send master ready after wave flag
                 time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=WAVE_READY)
             elif tag == START_PHASE_1:
-                print("Processor", rank, "starting phase 1")
                 success = incoming_data["success"]
                 if not success:
                     print("Erron in phase1")
@@ -1045,7 +1048,6 @@ else:
                 time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_1)
             elif tag == START_PHASE_1_POST:
-                print("Processor", rank, "starting post phase 1")
                 success = incoming_data["success"]
                 if not success:
                     print("Erron in post phase1")
@@ -1055,13 +1057,10 @@ else:
                 time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_1_POST)
             elif tag == START_PHASE_1_POST_POST:
-                print("Processor", rank, "starting post post phase 1")
                 post_post_phase1()
                 time.sleep(0.1)
-                print("Sub grid of processor", rank, "after post post phase 1")
                 comm.send(True, dest=MASTER, tag=READY_1_POST_POST)
             elif tag == START_PHASE_2:
-                print("Processor", rank, "starting phase 2")
                 success = incoming_data["success"]
                 if not success:
                     print("Erron in post phase1")
@@ -1071,7 +1070,6 @@ else:
                 time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_2)
             elif tag == START_PHASE_2_POST:
-                print("Processor", rank, "starting post phase 2")
                 success = incoming_data["success"]
                 if not success:
                     print("Erron in post phase2")
@@ -1082,13 +1080,11 @@ else:
                 comm.send(True, dest=MASTER, tag=READY_2_POST)
 
             elif tag == START_PHASE_3:
-                print("Processor", rank, "starting phase 3")
                 phase3(rank, cur_group, receive)
                 time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_3)
 
             elif tag == START_PHASE_3_POST:
-                print("Processor", rank, "starting post phase 3")
                 success = incoming_data["success"]
                 if not success:
                     print("Erron in post phase3")
@@ -1099,7 +1095,6 @@ else:
                 comm.send(True, dest=MASTER, tag=READY_3_POST)
 
             elif tag == START_PHASE_4:
-                print("Processor", rank, "starting phase 4")
                 last_round = incoming_data["last_round"]
                 success = incoming_data["success"]
                 if not success:
@@ -1111,7 +1106,6 @@ else:
                 comm.send(True, dest=MASTER, tag=READY_4)
 
             elif tag == START_PHASE_4_POST:
-                print("Processor", rank, "starting post phase 4")
                 success = incoming_data["success"]
                 if not success:
                     print("Erron in post phase2")
@@ -1124,6 +1118,15 @@ else:
                 master_data["success"] = True
                 time.sleep(0.1)
                 comm.send(master_data, dest=MASTER, tag=READY_4_POST)
+            
+            elif tag == DEBUG_START:
+                time.sleep(0.1)
+                comm.send(
+                    {"new_sub_grid": sub_grid, "processor_id": rank},
+                    dest=MASTER,
+                    tag=DEBUG_READY,
+                )
+                
 
         else:
             pass

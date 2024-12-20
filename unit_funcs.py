@@ -276,8 +276,6 @@ class Unit:
             elif source_unit.faction == AIR:
                 attackables = calc_air_attackables(search_grid)
             #print("Attackables for unit at", self.x, self.y, "are:")
-            for unit in attackables:
-                print(unit.x, unit.y, unit.faction)
             
             # If no enmy target available heal
             if len(attackables) == 0:
@@ -295,7 +293,9 @@ class Unit:
         if self.faction == EARTH:
             self.damage_queue -= (self.damage_queue / 2)
         self.hp -= self.damage_queue
+        print("Unit at", self.x, self.y, "has", self.hp, "hp")
         if self.hp <= 0:
+            print("Unit at", self.x, self.y, "is dead")
             is_dead = True
         
 

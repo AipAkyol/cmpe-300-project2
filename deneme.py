@@ -9,7 +9,6 @@ k = Deneme(6)
 z = Deneme(4)
 
 
-
 arr = [x, y]
 arr2 = []
 for i in arr:
