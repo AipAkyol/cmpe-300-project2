@@ -46,6 +46,7 @@ def optimum_air_location(location_grid):
 
     opt_x, opt_y = -1, -1
     attackables = -1
+    attackables_at_origin = -1
 
     for new_x in checked_xs:
         for new_y in checked_ys:
@@ -63,6 +64,8 @@ def optimum_air_location(location_grid):
             new_attackables = calc_air_attackables_count(
                 attack_grid
             )  # TODO check tie condition from forum
+            if new_x == cur_x and new_y == cur_y:
+                attackables_at_origin = new_attackables
             should_change = False
             if new_attackables >= attackables:
                 if new_attackables == attackables:
@@ -78,6 +81,9 @@ def optimum_air_location(location_grid):
                 attackables = new_attackables
                 opt_x = new_x
                 opt_y = new_y
+                
+    if attackables_at_origin == attackables:
+        return (cur_x, cur_y)
 
     return (opt_x, opt_y)
 
@@ -555,8 +561,7 @@ if rank == 0:
 
             print("Round", j + 1, "completed")
             debug_print_grid(grid)
-            if last_round:
-                exit(1)
+            
         init_wave = False
 
 
@@ -643,15 +648,10 @@ else:
                         new_x, new_y = optimum_air_location(
                             search_grid
                         )  # relative pos to the 7x7 search grid
-                        print(f"New x found: {new_x} and new y found: {new_y}")
                         # now convert this pos to sub_grid_len + 6 x sub_grid_len + 6 extended grid
                         extended_new_pos_x = extended_air_x + new_x - 3
                         extended_new_pos_y = extended_air_y + new_y - 3
-                        print(
-                            "In extended grid new x and y are: ",
-                            extended_new_pos_x,
-                            extended_new_pos_y,
-                        )
+                    
                         dest_id, rel_x, rel_y = get_processor_id_loc_air(
                             extended_new_pos_x,
                             extended_new_pos_y,
@@ -661,8 +661,6 @@ else:
                         )
                         airs_to_place.append((dest_id, rel_x, rel_y, unit))
 
-            for s in airs_to_place:
-                print(s)
 
     # places air units in a given grid, and merges if necessary
     def post_phase1(rank, cur_group, receive):
@@ -814,7 +812,7 @@ else:
             if source.faction == FIRE:
                 dest.fire_attackers.append(source)
 
-        debug_print_grid(sub_grid)
+
         # Apply damages
         for row_idx in range(len(sub_grid)):
             for col_idx in range(len(sub_grid)):
@@ -826,8 +824,6 @@ else:
                     sub_grid[row_idx][col_idx] = "."
                     for fire_to_buf in fires_to_buff:
                         fire_units_to_buff.append(fire_to_buf)
-                        print("ap1")
-                        print("Appending fire ", fire_to_buf.x, fire_to_buf.y)
                 unit.fire_attackers.clear()
                 unit.damage_queue = 0
 
@@ -839,17 +835,14 @@ else:
             sources = get_receiver_source_list(rank, no_workers)
             for source in sources:
                 fire_units = comm.recv(source=source, tag=FIRE_LIST_INFO)
-                print("Incoming fire units length is ", len(fire_units))
                 for fire_unit in fire_units:
                     fire_units_to_buff.append(fire_unit)
-                    print("ap2")
-                    print("Appending fire ", fire_unit.x, fire_unit.y)
                     dest_id = get_id_from_global_pos(
                         fire_unit.x, fire_unit.y, len(sub_grid), no_workers
                     )
                     if dest_id != rank:
                         print("Error in post phase 3 in adding fire unit")
-            print("Fire units to buff berfore loop")
+
             print(fire_units_to_buff)
             fire_units_to_remove = []
             for fire_unit_checked in fire_units_to_buff:
@@ -984,8 +977,6 @@ else:
                                 )
                                 places_to_flood.append((dest_id, rel_x, rel_y))
 
-                print("Places to flood")
-                print(places_to_flood)
 
             else:  # Share data
                 destinations = get_sender_destination_list(rank, no_workers, cur_group)
