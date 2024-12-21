@@ -622,6 +622,7 @@ else:
     def phase1(rank, cur_group, receive):
         if not receive:  # Share data
             destinations = get_sender_destination_list(rank, no_workers, cur_group)
+
             for dest in destinations:
                 shared_sub_grid_part = get_subgrid_to_share_air(
                     sub_grid, rank, dest, no_workers
@@ -629,6 +630,7 @@ else:
                 comm.send(shared_sub_grid_part, dest=dest, tag=AIR_LOC_INFO)
         elif receive:  # Collect data, and find optimal positions for air units
             sources = get_receiver_source_list(rank, no_workers)
+
             len_sub_grid = len(sub_grid)  # x represents border length of subgrid
             extended_sub_grid = [
                 ["." for _ in range(len_sub_grid + 6)] for _ in range(len_sub_grid + 6)
@@ -695,6 +697,7 @@ else:
                         airs_to_place_remove.append(air)
                 airs_to_place = [ un for un in airs_to_place if un not in airs_to_place_remove]
                 comm.send(airs_to_send, dest=dest, tag=AIR_NEW_LOC_INFO)
+           
         elif receive:
             sources = get_receiver_source_list(rank, no_workers)
             for source in sources:
@@ -850,6 +853,7 @@ else:
         global fire_units_to_buff
         if receive:
             sources = get_receiver_source_list(rank, no_workers)
+
             for source in sources:
                 fire_units = comm.recv(source=source, tag=FIRE_LIST_INFO)
                 for fire_unit in fire_units:
@@ -893,6 +897,7 @@ else:
 
         else:  # Share data
             destinations = get_sender_destination_list(rank, no_workers, cur_group)
+
             for dest in destinations:
                 fire_units_to_send = []
                 fire_units_to_remove = []
@@ -930,6 +935,7 @@ else:
         if last_round:
             if receive:
                 sources = get_receiver_source_list(rank, no_workers)
+
                 len_sub_grid = len(sub_grid)
                 extended_sub_grid = [
                     ["." for _ in range(len_sub_grid + 6)]
@@ -985,6 +991,7 @@ else:
 
             else:  # Share data
                 destinations = get_sender_destination_list(rank, no_workers, cur_group)
+     
                 for dest in destinations:
                     shared_sub_grid_part = get_subgrid_to_share_air(
                         sub_grid, rank, dest, no_workers
@@ -995,6 +1002,7 @@ else:
         global places_to_flood
         if receive:
             sources = get_receiver_source_list(rank, no_workers)
+
             for source in sources:
                 places_to_flood_part = comm.recv(
                     source=source, tag=FLOOD_PLACE_EXCHANGE
@@ -1026,7 +1034,7 @@ else:
     while True:
         # Wait for subgrid at the start of wave
         status = MPI.Status()
-        incoming_data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+        incoming_data = comm.recv(source=MASTER, tag=MPI.ANY_TAG, status=status)
         source = status.Get_source()
 
         tag = status.Get_tag()
@@ -1129,4 +1137,5 @@ else:
                 
 
         else:
+            print("ERROR in communication")
             pass
