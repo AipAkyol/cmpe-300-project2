@@ -3,6 +3,7 @@ from math import sqrt
 import time
 from unit_funcs import *
 from enum_util import *
+import sys
 
 
 # This function returns the list of sources current receiver expecting data
@@ -218,7 +219,7 @@ def generate_grid_from_wave(grid, wave, is_first=False):
     for row in grid:
         for cell in row:
             if cell != "." and cell.faction == FIRE:
-                cell.attack = 1
+                cell.attack = 4
                 
     return grid
 
@@ -373,6 +374,9 @@ if rank == 0:
         grid = generate_grid_from_wave(grid, waves[i], init_wave)
         print("Grid after wave ", i + 1)
         debug_print_grid(grid)
+
+        sys.stdout.flush()
+
         # Send each part of the grid to a processor
         # processor no increases to right and down
         for k in range(1, no_workers + 1):
@@ -400,6 +404,8 @@ if rank == 0:
 
         for j in range(R):
             print("Starting round", j + 1)
+
+            sys.stdout.flush()
 
             # Check if the rouns is the last of this wave
             last_round = j == R - 1
@@ -430,6 +436,8 @@ if rank == 0:
                     if not res:
                         print("Error occured after phase 1")
 
+            sys.stdout.flush()
+
             print("Starting post phase 1 of round", j + 1)
             for cur_group in groups:
                 # send start post phase 1 signals to workers
@@ -459,6 +467,8 @@ if rank == 0:
                 if not res:
                     print("Error occured after post post phase 1")
 
+            sys.stdout.flush()
+
             print("Starting phase 2 of round", j + 1)
             for cur_group in groups:
                 # Send start phase 2 signals to workers
@@ -476,6 +486,8 @@ if rank == 0:
                     res = comm.recv(source=(k+1), tag=READY_2)
                     if not res:
                         print("Error occured after phase 2")
+
+            sys.stdout.flush()
 
             print("Starting post phase 2 of round", j + 1)
             for cur_group in groups:
@@ -495,6 +507,9 @@ if rank == 0:
                     if not res:
                         print("Error occured after post phase 2")
 
+            sys.stdout.flush()
+
+            print("Starting phase 3 of round", j + 1)
             # Send start phase 3 signals to workers
             for k in range(1, no_workers + 1):
                 comm.send(True, dest=k, tag=START_PHASE_3)
@@ -504,6 +519,8 @@ if rank == 0:
                 res = comm.recv(source=(k + 1), tag=READY_3)
                 if not res:
                     print("Error occured after phase 3")
+
+            sys.stdout.flush()
 
             # Post phase 3
             print("Starting post phase 3 of round", j + 1)
@@ -524,6 +541,9 @@ if rank == 0:
                     if not res:
                         print("Error occured after post phase 3")
 
+            sys.stdout.flush()
+
+            print("Starting phase 4 of round", j + 1)
             iteration = [""]
             if last_round:
                 iteration = groups
@@ -587,9 +607,18 @@ if rank == 0:
             
         init_wave = False
 
-
+    print("All waves completed")
+    # Send end signal to workers
+    for k in range(1, no_workers + 1):
+        comm.send(True, dest=k, tag=END_EXEC)
+    # Wait for all workers to finish post post phase 1
+    for k in range(no_workers):
+        res = comm.recv(source=(k + 1), tag=END_EXEC_READY)
+        if not res:
+            print("Error occured after end exec")
 # Workers
 else:
+    print("Worker", rank, "started")
     # processor id of master
     MASTER = 0
 
@@ -736,6 +765,10 @@ else:
         airs_to_place.clear()
 
     def phase2(rank, cur_group, receive):
+        
+        # Assert that airs to place is empty for all processors
+        if (len(airs_to_place) != 0):
+            print("Error in phase 2, airs to place not empty on pid: ", rank)
 
         if receive:
             sources = get_receiver_source_list(rank, no_workers)
@@ -822,6 +855,7 @@ else:
             )
             dest = sub_grid[local_x][local_y]
             dest.damage_queue += source.attack
+            print(source.faction," at ", source.x, source.y, " attacking ", dest.faction, "at", dest.x, dest.y, " with ", source.attack, " damage")
             if source.faction == FIRE:
                 dest.fire_attackers.append(source)
 
@@ -930,7 +964,8 @@ else:
                 unit = sub_grid[row_idx][col_idx]
                 if unit == ".":
                     continue
-                unit.heal()
+                if unit.will_heal:
+                    unit.heal()
 
         if last_round:
             if receive:
@@ -1134,8 +1169,16 @@ else:
                     dest=MASTER,
                     tag=DEBUG_READY,
                 )
+
+            elif tag == END_EXEC:
+                time.sleep(0.1)
+                comm.send(True, dest=MASTER, tag=END_EXEC_READY)
+                break
                 
 
         else:
             print("ERROR in communication")
             pass
+    
+        #flush stdout
+        sys.stdout.flush()

@@ -264,6 +264,7 @@ class Unit:
     def attack_or_heal(self, source_unit, search_grid):
         # Decite to heal
         if self.hp < self.max_hp / 2:
+            print(self.faction, "unit at", self.x, self.y, "has health" , self.hp, "/", self.max_hp, "and skip attack to heal")
             self.will_heal = True
             return []
         else:  # Attack
@@ -279,6 +280,7 @@ class Unit:
             
             # If no enmy target available heal
             if len(attackables) == 0:
+                print(self.faction, "unit at", self.x, self.y, "has no valid targets")
                 self.will_heal = True
             return attackables
 
@@ -286,16 +288,18 @@ class Unit:
         self.hp += self.heal_rate
         self.hp = min(self.hp, self.max_hp)
         self.will_heal = False
+        print(self.faction, "unit at", self.x, self.y, "healed to", self.hp, "hp")
 
     def apply_damage(self):
         # Earth special ability
         is_dead = False
         if self.faction == EARTH:
-            self.damage_queue -= (self.damage_queue / 2)
+            self.damage_queue = self.damage_queue // 2
+
         self.hp -= self.damage_queue
-        print("Unit at", self.x, self.y, "has", self.hp, "hp")
+        print(self.faction, "at", self.x, self.y, "took", self.damage_queue , "damage and now has", self.hp, "hp")
         if self.hp <= 0:
-            print("Unit at", self.x, self.y, "is dead")
+            print(self.faction, "at", self.x, self.y, "is dead")
             is_dead = True
         
 

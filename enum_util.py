@@ -19,6 +19,7 @@ READY_3_POST = 45
 READY_4 = 55
 READY_4_POST = 56
 WAVE_READY = 66
+END_EXEC_READY = 77
 
 DEBUG_START = 77
 DEBUG_READY = 88
@@ -43,6 +44,7 @@ START_PHASE_3_POST = 51
 START_PHASE_4 = 6
 START_PHASE_4_POST = 61
 SUB_GRID = 7
+END_EXEC = 8
 
 # Define relative positions of two units
 # Convention: Directions are the destination relative to source
