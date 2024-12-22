@@ -948,7 +948,7 @@ else:
                         fire_unit_checked.x, fire_unit_checked.y, len(sub_grid)
                     )
                     sub_grid_fire_unit = sub_grid[local_x][local_y]
-                    if sub_grid_fire_unit.faction != FIRE:
+                    if sub_grid_fire_unit == ".":
                         pass
                         # fire to buff may be dead
                     else:
