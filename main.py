@@ -147,6 +147,7 @@ def get_subgrid_to_share_air(sub_grid, cur_id, dest_id, no_workers):
         return [sub_grid[-3][-3:], sub_grid[-2][-3:], sub_grid[-1][-3:]]
 
 
+# This function parses the input file and returns the parameters and waves
 def read_input(file_path):
     with open(file_path, "r") as f:
         lines = f.readlines()
@@ -176,6 +177,7 @@ def read_input(file_path):
     return N, W, T, R, waves
 
 
+# This function prints the grid to the console
 def print_grid(grid, N):
     for row in grid:
         idx = 0
@@ -189,7 +191,7 @@ def print_grid(grid, N):
                 print(" ", end="")
         print()
 
-
+# This function prints the grid to the console
 def debug_print_grid(grid):
     for row in grid:
         idx = 0
@@ -204,6 +206,7 @@ def debug_print_grid(grid):
         print()
 
 
+# This function generates the grid from the wave, essentially placing the new units to grid
 def generate_grid_from_wave(grid, wave, is_first=False):
     if is_first:
         grid = [["." for _ in range(N)] for _ in range(N)]
@@ -310,13 +313,14 @@ def get_global_loc_from_sub_grid(rel_x, rel_y, sub_grid_len, processor_id, no_wo
     global_y = processor_loc_y * sub_grid_len + rel_y
     return (global_x, global_y)
 
-
+# This function gets the process id of the destination processor by using the global pos
 def get_id_from_global_pos(x, y, sub_grid_len, no_workers):
     proc_y = y // sub_grid_len
     proc_x = x // sub_grid_len
     return proc_x * int(sqrt(no_workers)) + proc_y + 1
 
-
+# This function calculates the flood location for the water unit that is in the middle of the extended grid according to the rules for flood,
+# returns the location as a tuple (x, y)
 def get_flood_location(extended_grid):
     source_x = 2
     source_y = 2
@@ -335,7 +339,7 @@ def get_flood_location(extended_grid):
             return (search_x, search_y)
     return (-1, -1)
 
-
+# This function updates the grid with the new subgrid
 def update_grid_with_sub_grid(grid, sub_grid, processor_id, no_workers):
     k = int(sqrt(no_workers))
     m = len(sub_grid)
@@ -727,7 +731,7 @@ else:
                         )
                         airs_to_place.append((dest_id, rel_x, rel_y, unit))
 
-    # places air units in a given grid, and merges if necessary
+    # removes air units, places them in other phase
     def post_phase1(rank, cur_group, receive):
         global airs_to_place
         if not receive:
@@ -757,6 +761,7 @@ else:
                     if sub_grid[grid_x][grid_y].faction == AIR:
                         sub_grid[grid_x][grid_y] = "."
 
+    # Places the air units in the subgrid, merges them if necessary
     def post_post_phase1():
         for air in airs_to_place:
             dest_id, rel_x, rel_y, unit = air
@@ -780,6 +785,7 @@ else:
                 print("ERROR in post post phase 1")
         airs_to_place.clear()
 
+    # Calculates the units to attack or heal in phase 2
     def phase2(rank, cur_group, receive):
         
         # Assert that airs to place is empty for all processors
@@ -832,6 +838,7 @@ else:
                 )
                 comm.send(shared_sub_grid_part, dest=dest, tag=ATTACK_LOC_INFO)
 
+    # Shares the units to attack to neighboring processes
     def post_phase2(rank, cur_group, receive):
         global all_units_to_attack
         if receive:
@@ -856,6 +863,7 @@ else:
                 comm.send(units_vectors_to_send, dest=dest, tag=DAMAGE_LIST_INFO)
                 all_units_to_attack = [ unit for unit in all_units_to_attack if unit not in all_units_to_attack_remove]
 
+    # applies the damages and holds the fire units to buff if necessary
     def phase3(rank, cur_group, receive):
         # Queue all the damages in the list
         for unit_vector in all_units_to_attack:
@@ -899,6 +907,7 @@ else:
 
         all_units_to_attack.clear()
 
+    # Buffs the fire units if necessary
     def post_phase3(rank, cur_group, receive):
         global fire_units_to_buff
         if receive:
@@ -967,6 +976,7 @@ else:
                     if unit not in fire_units_to_remove
                 ]
 
+    # Applies the healing and calculates the flood locations if last round
     def phase4(last_round, receive, cur_group):
         # Assert all untis to attack and fire buff lists are empty
         if len(all_units_to_attack) != 0 or len(fire_units_to_buff) != 0:
@@ -1049,6 +1059,7 @@ else:
                     )
                     comm.send(shared_sub_grid_part, dest=dest, tag=WATER_FLOOD_INFO)
 
+    # Places the water units in the subgrid based on the flood locations
     def post_phase4(rank, cur_group, receive):
         global places_to_flood
         if receive:

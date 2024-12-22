@@ -223,7 +223,7 @@ def calc_fire_attackables(attack_grid):
             
     return attackables
 
-
+# This function calculates the number of attackable units given by the air unit
 def calc_air_attackables_count(attack_grid):
     return len(calc_air_attackables(attack_grid))
 
@@ -261,6 +261,9 @@ class Unit:
         self.faction = faction
         self.set_props(faction)
 
+
+    # This function is called when a unit to decide whether to attack or heal and returns the attackables if attack is decided
+    # Attackables are calculated based on the faction of the source unit, and if attackables are empty, the unit will heal
     def attack_or_heal(self, source_unit, search_grid):
         # Decite to heal
         if self.hp < self.max_hp / 2:
@@ -284,12 +287,15 @@ class Unit:
                 self.will_heal = True
             return attackables
 
+    # This function is called when a unit is decided to heal and applies the healing to the unit
     def heal(self):
         self.hp += self.heal_rate
         self.hp = min(self.hp, self.max_hp)
         self.will_heal = False
         print(self.faction, "unit at", self.x, self.y, "healed to", self.hp, "hp")
 
+    # This function is called when a unit is attacked and applies the damage to the unit, for earth unit, the damage is halved
+    # returns the fire_attackers and is_dead flag that is true if the unit is dead
     def apply_damage(self):
         # Earth special ability
         is_dead = False
