@@ -64,7 +64,7 @@ def optimum_air_location(location_grid):
 
             new_attackables = calc_air_attackables_count(
                 attack_grid
-            )  # TODO check tie condition from forum
+            )  
             if new_x == cur_x and new_y == cur_y:
                 attackables_at_origin = new_attackables
             should_change = False
@@ -361,7 +361,10 @@ no_workers = no_processors - 1
 # Master process
 if rank == 0:
 
-    input_file = "./cases/input1.txt"  # TODO chnage
+    # Parse input file and output file from command line arguments
+    args = sys.argv[1:]
+    input_file = args[0]
+    output_file = args[1]
     current_wave = 0
     # grid size, number of waves, unit per faction, rounds per wave
     N, W, T, R, waves = read_input(input_file)
@@ -452,7 +455,6 @@ if rank == 0:
 
                 # Wait for all workers to finish post phase 1
                 for k in range(no_workers):
-                    print("Waiting for post phase 1 of processor", k + 1)
                     res = comm.recv(source=(k + 1), tag=READY_1_POST)
                     if not res:
                         print("Error occured after post phase 1")
@@ -616,9 +618,24 @@ if rank == 0:
         res = comm.recv(source=(k + 1), tag=END_EXEC_READY)
         if not res:
             print("Error occured after end exec")
+            
+    # Save final grid to output file
+    with open(output_file, "w") as f:
+        for row in grid:
+            idx = 0
+            for cell in row:
+                idx += 1
+                visual = cell
+                if visual != ".":
+                    visual = cell.faction
+                f.write(visual)
+                if idx != len(grid[0]):
+                    f.write(" ")
+            f.write("\n")
+            
+            
 # Workers
 else:
-    print("Worker", rank, "started")
     # processor id of master
     MASTER = 0
 
@@ -709,7 +726,6 @@ else:
                             no_workers,
                         )
                         airs_to_place.append((dest_id, rel_x, rel_y, unit))
-
 
     # places air units in a given grid, and merges if necessary
     def post_phase1(rank, cur_group, receive):
@@ -1078,7 +1094,6 @@ else:
             
                 sub_grid = incoming_data
                 # Send master ready after wave flag
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=WAVE_READY)
             elif tag == START_PHASE_1:
                 success = incoming_data["success"]
@@ -1088,7 +1103,6 @@ else:
                 cur_group = incoming_data["cur_group"]
                 phase1(rank, cur_group, receive)
                 # sleep thread for one second
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_1)
             elif tag == START_PHASE_1_POST:
                 success = incoming_data["success"]
@@ -1097,11 +1111,9 @@ else:
                 receive = incoming_data["receive"]
                 cur_group = incoming_data["cur_group"]
                 post_phase1(rank, cur_group, receive)
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_1_POST)
             elif tag == START_PHASE_1_POST_POST:
                 post_post_phase1()
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_1_POST_POST)
             elif tag == START_PHASE_2:
                 success = incoming_data["success"]
@@ -1110,7 +1122,6 @@ else:
                 receive = incoming_data["receive"]
                 cur_group = incoming_data["cur_group"]
                 phase2(rank, cur_group, receive)
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_2)
             elif tag == START_PHASE_2_POST:
                 success = incoming_data["success"]
@@ -1119,12 +1130,10 @@ else:
                 receive = incoming_data["receive"]
                 cur_group = incoming_data["cur_group"]
                 post_phase2(rank, cur_group, receive)
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_2_POST)
 
             elif tag == START_PHASE_3:
                 phase3(rank, cur_group, receive)
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_3)
 
             elif tag == START_PHASE_3_POST:
@@ -1134,7 +1143,6 @@ else:
                 receive = incoming_data["receive"]
                 cur_group = incoming_data["cur_group"]
                 post_phase3(rank, cur_group, receive)
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_3_POST)
 
             elif tag == START_PHASE_4:
@@ -1145,7 +1153,6 @@ else:
                 receive = incoming_data["receive"]
                 cur_group = incoming_data["cur_group"]
                 phase4(last_round, receive, cur_group)
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=READY_4)
 
             elif tag == START_PHASE_4_POST:
@@ -1159,11 +1166,9 @@ else:
                 master_data["new_sub_grid"] = sub_grid
                 master_data["processor_id"] = rank
                 master_data["success"] = True
-                time.sleep(0.1)
                 comm.send(master_data, dest=MASTER, tag=READY_4_POST)
             
             elif tag == DEBUG_START:
-                time.sleep(0.1)
                 comm.send(
                     {"new_sub_grid": sub_grid, "processor_id": rank},
                     dest=MASTER,
@@ -1171,7 +1176,6 @@ else:
                 )
 
             elif tag == END_EXEC:
-                time.sleep(0.1)
                 comm.send(True, dest=MASTER, tag=END_EXEC_READY)
                 break
                 
