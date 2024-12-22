@@ -349,6 +349,8 @@ def update_grid_with_sub_grid(grid, sub_grid, processor_id, no_workers):
         for j in range(m):
             grid[cur_x * m + i][cur_y * m + j] = sub_grid[i][j]
 
+# start timer
+start_time = time.time()
 
 # Initialize the MPI communicator
 comm = MPI.COMM_WORLD
@@ -636,6 +638,11 @@ if rank == 0:
                 if idx != len(grid[0]):
                     f.write(" ")
             f.write("\n")
+
+    # Print the execution time in miliseconds
+    print("Execution time:", (time.time() - start_time) * 1000, "ms")
+
+
             
             
 # Workers
